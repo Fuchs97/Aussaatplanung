@@ -6,6 +6,8 @@ TU-Braunschweig
 """
 import matplotlib.pyplot as plt
 from rotate_pattern import rotate_polygon
+from coords_transformation import utm_to_geo_points, utm_to_geo_polygon, geo_to_utm, get_utm_zone
+from shapely.geometry import Polygon
 
 def plot_field_and_points(polygon, reduced_polygon, points, angle_degrees):
     # Zeichne das Polygon und die Punkte
@@ -30,5 +32,5 @@ def plot_field_and_points(polygon, reduced_polygon, points, angle_degrees):
     plt.title('Polygon und dreiecksförmige Saatverteilung')
     plt.show()
 
-
-
+if __name__ == "__main__":
+    pass
