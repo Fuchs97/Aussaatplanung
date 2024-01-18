@@ -6,7 +6,7 @@ TU-Braunschweig
 """
 def save_data_seed_coords (points):
     data = open("Koordinaten_Saatpunkte.txt", "w")
-    data.write("In diesem Dokument befinden sich berechneten Koordinaten für die Saatpunkte.")
+    data.write("In diesem Dokument befinden sich berechneten geographischen Koordinaten für die Saatpunkte.")
     data.write("\n")
     data.write("\n")
 

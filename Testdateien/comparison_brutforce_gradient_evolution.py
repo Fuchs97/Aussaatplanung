@@ -1,6 +1,5 @@
 import numpy as np
 from scipy.optimize import minimize, shgo
-import geopandas as gpd
 from shapely.geometry import Polygon, Point
 from shapely.affinity import translate, rotate
 import matplotlib.pyplot as plt

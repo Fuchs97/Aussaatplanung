@@ -1,16 +1,15 @@
 
 from shapely.geometry import Point, Polygon
 import shapely.wkt
-from pyproj import Proj, Transformer
+from pyproj import Proj, Transformer, CRS
 def geo_to_utm(coordinates, utm_zone):
-    # Definiere die Parameter für das projizierte Koordinatensystem
+    # Definiere die Parameter für das projizierte Koordinatensystem (ETRS89)
     proj_params = {
         'proj': 'utm',
         'zone': utm_zone,
-        'ellps': 'WGS84',
+        'ellps': 'GRS80',  # Das ETRS89-Referenzsystem verwendet das GRS80-Ellipsoid
         'units': 'm',
-        'datum': 'WGS84',
-        'no_defs': True
+        'type': 'crs'
     }
 
     # Erstelle das projizierte Koordinatensystem
@@ -27,23 +26,20 @@ def geo_to_utm(coordinates, utm_zone):
     return projected_coordinates
 
 def utm_to_geo_points(input, utm_zone):
-    # Definiere die Parameter für das projizierte Koordinatensystem
-    proj_params = {
+    # Definiere das UTM-Koordinatensystem
+    utm_crs_params = {
         'proj': 'utm',
         'zone': utm_zone,
-        'ellps': 'WGS84',
-        'units': 'm',
-        'datum': 'WGS84',
-        'no_defs': True
+        'ellps': 'GRS80',
+        'units': 'm'
     }
-    # Erstelle das projizierte Koordinatensystem
-    projected_crs = Proj(proj_params)
+    utm_crs = CRS(utm_crs_params)
 
     # Initialisiere leere Liste für die geographischen Koordinaten
     geo_coordinates = []
 
     # Transformiere projizierte Koordinaten zurück in Geo-Koordinaten
-    transformer = Transformer.from_crs(projected_crs.crs, "EPSG:4326", always_xy=True)
+    transformer = Transformer.from_crs(utm_crs, "EPSG:4326", always_xy=True)
 
     if isinstance(input, list):
         for point in input:
@@ -58,20 +54,17 @@ def utm_to_geo_points(input, utm_zone):
     return geo_coordinates
 
 def utm_to_geo_polygon(utm_polygon, utm_zone):
-    # Definiere die Parameter für das projizierte Koordinatensystem
-    proj_params = {
+    # Definiere das UTM-Koordinatensystem
+    utm_crs_params = {
         'proj': 'utm',
         'zone': utm_zone,
-        'ellps': 'WGS84',
-        'units': 'm',
-        'datum': 'WGS84',
-        'no_defs': True
+        'ellps': 'GRS80',
+        'units': 'm'
     }
-    # Erstelle das projizierte Koordinatensystem
-    projected_crs = Proj(proj_params)
+    utm_crs = CRS(utm_crs_params)
 
     # Transformiere projizierte Koordinaten zurück in Geo-Koordinaten
-    transformer = Transformer.from_crs(projected_crs.crs, "EPSG:4326", always_xy=True)
+    transformer = Transformer.from_crs(utm_crs, "EPSG:4326", always_xy=True)
 
     def transform_coordinates(utm_coords):
         lon, lat = transformer.transform(utm_coords[0], utm_coords[1])
@@ -106,11 +99,13 @@ if __name__ == "__main__":
 
     utm_zone = get_utm_zone(coords)
 
-    coords_geo = utm_to_geo(utm_points, utm_zone)
+    coords_geo = utm_to_geo_points(utm_points, utm_zone)
     print(f"Zurücktransformierte Koordinaten in geographische Koordinaten: {coords_geo}")
 
-    coords_geo2 = utm_to_geo(polygon, utm_zone)
-    print(f"Zurücktransformierte Koordinaten in geographische Koordinaten: {coords_geo2}")
+    coords = geo_to_utm(coords, utm_zone)
+
+   # coords_geo2 = utm_to_geo_polygon(polygon, utm_zone)
+    #print(f"Zurücktransformierte Koordinaten in geographische Koordinaten: {coords_geo2}")
 
 
 
