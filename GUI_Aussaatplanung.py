@@ -3,13 +3,18 @@ import customtkinter
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 from rotate_pattern import generate_triangular_points_rotated
-from shapely.geometry import Polygon
-from save_data import save_data_seed_coords
+from shapely.geometry import Polygon, Point
+from save_data import save_data_seed_coords, save_data_seed_coords_kml
 from polygon_with_field_edge import reduced_polygon
 from coords_kml_tkinter import select_kml_file, extract_coordinates
 from coords_transformation import get_utm_zone, geo_to_utm, utm_to_geo_points
 from PSO import pyswarm_global_optimization
-import matplotlib.ticker as ticker
+from tkinter import filedialog
+from headland_coords import points_headland_area, points_headland_circ
+import numpy as np
+customtkinter.set_appearance_mode("light")
+customtkinter.set_default_color_theme("dark-blue")
+
 class PlotApp(customtkinter.CTk):
     def __init__(self):
         # customtkinter.CTk-Methoden erben
@@ -90,27 +95,27 @@ class PlotApp(customtkinter.CTk):
         # Optionsliste Saatgut Konfiguration
         self.option_plants_label = customtkinter.CTkLabel(self.sidebar_frame1, text="Saatgut:")
         self.option_plants_label.grid(row=5, column=1, padx=10, pady=10, sticky="w")
-        self.option_plants_entry = customtkinter.CTkOptionMenu(self.sidebar_frame1, values=["", "Zuckerrübe", "Mais", "Getreide", "Test 100m"], state="readonly")
+        self.option_plants_entry = customtkinter.CTkOptionMenu(self.sidebar_frame1, values=["", "Zuckerrübe", "Mais", "Getreide", "Test 10m", "Test 100m"], state="readonly")
         self.option_plants_entry.grid(row=5, column=2, padx=10, pady=10, sticky="ew")
 
         # Button um Koordinaten der KML-File zu extrahieren
         self.coords1_kml = customtkinter.CTkButton(self.sidebar_frame1, text="KML-Datei hochladen", command=self.extract_coordinates_kml)
-        self.coords1_kml.grid(row=1, column=3, pady=0, sticky="n")
+        self.coords1_kml.grid(row=1, column=3, pady=0, padx=10, sticky="n")
         self.coords2_kml = customtkinter.CTkButton(self.sidebar_frame1, text="KML-Datei hochladen", command=lambda: self.extract_coordinates_kml_headland_1())
         self.coords2_kml.grid(row=3, column=3, pady=10, sticky="n")
         self.coords3_kml = customtkinter.CTkButton(self.sidebar_frame1, text="KML-Datei hochladen", command=lambda: self.extract_coordinates_kml_headland_2())
         self.coords3_kml.grid(row=4, column=3, pady=10, sticky="n")
 
         # Eingabefelder für die Berechnung manuell
-        self.disp_x_label = customtkinter.CTkLabel(self.sidebar_frame2, text="Verschiebung in X-Richtung [%]:")
+        self.disp_x_label = customtkinter.CTkLabel(self.sidebar_frame2, text="Verschiebung in X-Richtung in %:")
         self.disp_x_label.grid(row=1, column=1, padx=10, pady=10, sticky="nw")
         self.disp_x_entry = customtkinter.CTkEntry(self.sidebar_frame2, width=60, height=20)
         self.disp_x_entry.grid(row=1, column=2, rowspan=1, padx=10, pady=10, sticky="nw")
-        self.disp_y_label = customtkinter.CTkLabel(self.sidebar_frame2, text="Verschiebung in Y-Richtung [%]:")
+        self.disp_y_label = customtkinter.CTkLabel(self.sidebar_frame2, text="Verschiebung in Y-Richtung in %:")
         self.disp_y_label.grid(row=2, column=1, padx=10, pady=10, sticky="nw")
         self.disp_y_entry = customtkinter.CTkEntry(self.sidebar_frame2, width=60, height=20)
         self.disp_y_entry.grid(row=2, column=2, rowspan=1, padx=10, pady=10, sticky="nw")
-        self.angle_label = customtkinter.CTkLabel(self.sidebar_frame2, text="Rotation [max. 60°]:")
+        self.angle_label = customtkinter.CTkLabel(self.sidebar_frame2, text="Winkel in °:")
         self.angle_label.grid(row=3, column=1, padx=10, pady=10, sticky="nw")
         self.angle_entry = customtkinter.CTkEntry(self.sidebar_frame2, width=60, height=20)
         self.angle_entry.grid(row=3, column=2, rowspan=1, padx=10, pady=10, sticky="nw")
@@ -134,12 +139,17 @@ class PlotApp(customtkinter.CTk):
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.sidebar_frame3)
         self.canvas.get_tk_widget().grid(row=1, column=0, columnspan=2, padx=20, pady=10, sticky="nsew")
         # Button, um Saatpunkte zu speichern und um SVG-Datei zu erstellen
-        self.seed_points_list = customtkinter.CTkButton(self.sidebar_frame3, text="Koordinatenliste generieren",
+        self.seed_points_list = customtkinter.CTkButton(self.sidebar_frame3, text="Koordinatenliste als txt.-Datei generieren",
                                                         command=lambda: self.generate_seed_points_list())
-        self.seed_points_list.grid(row=2, column=0, columnspan=1, padx=10, pady=10)
+        self.seed_points_list.grid(row=2, column=0, columnspan=1, padx=20, pady=10, sticky="w")
         self.save_svg = customtkinter.CTkButton(self.sidebar_frame3, text="SVG-Datei speichern",
                                                         command=lambda: self.save_as_svg())
         self.save_svg.grid(row=2, column=1, columnspan=1, padx=10, pady=10)
+        self.save_svg = customtkinter.CTkButton(self.sidebar_frame3,
+                                                text="Saat-Koordinaten in einer KML-Datei speichern",
+                                                command=lambda: self.save_as_kml())
+        self.save_svg.grid(row=3, column=0, columnspan=1, padx=20,
+                           pady=10, sticky="w")
 
         # Platzhalter für den Plot
         self.plot_placeholder()
@@ -157,18 +167,22 @@ class PlotApp(customtkinter.CTk):
         self.umlaufbreite1 = 0
         self.saatgut1 = ""
         self.vorgewendeoption1 = "Individueller Bereich"
+        self.points1 = 0
         self.feldgrenzen2 = ""
         self.vorgewende21 = ""
         self.vorgewende22 = ""
         self.umlaufbreite2 = 0
         self.saatgut2 = ""
         self.vorgewendeoption2 = "Individueller Bereich"
+        self.points2 = 0
         self.feldgrenzen3 = ""
         self.vorgewende31 = ""
         self.vorgewende32 = ""
         self.umlaufbreite3 = 0
         self.saatgut3 = ""
         self.vorgewendeoption3 = "Individueller Bereich"
+        self.points3 = 0
+        self.points_total = []
 
         # Berechnung Parameter
         self.disp_x = ""
@@ -366,46 +380,54 @@ class PlotApp(customtkinter.CTk):
     def calculate_and_plot(self):
         self.save_field_parameters()
         self.ax.clear()
+        self.points_total = []
         if self.feldgrenzen1 != "":
-            points1 = self.calculate_field(self.feldgrenzen1,
+            self.points1 = self.calculate_field(self.feldgrenzen1,
                                            self.saatgut1)
-            self.points = points1
-            self.plot(points1,
+            self.points = self.points1
+            self.plot(self.points1,
                       self.feldgrenzen1,
                       self.vorgewendeoption1,
                       self.umlaufbreite1,
                       self.vorgewende11,
                       self.vorgewende12)
+            for point in self.points1:
+                self.points_total.append(point)
         if self.feldgrenzen2 != "":
-            points2 = self.calculate_field(self.feldgrenzen2,
+            self.points2 = self.calculate_field(self.feldgrenzen2,
                                            self.saatgut2)
-            self.points = points2
-            self.plot(points2,
+            self.points = self.points2
+            self.plot(self.points2,
                       self.feldgrenzen2,
                       self.vorgewendeoption2,
                       self.umlaufbreite2,
                       self.vorgewende21,
                       self.vorgewende22)
+            for point in self.points2:
+                self.points_total.append(point)
         if self.feldgrenzen3 != "":
-            points3 = self.calculate_field(self.feldgrenzen3,
+            self.points3 = self.calculate_field(self.feldgrenzen3,
                                            self.saatgut3)
-            self.points = points3
-            self.plot(points3,
+            self.points = self.points3
+            self.plot(self.points3,
                       self.feldgrenzen3,
                       self.vorgewendeoption3,
                       self.umlaufbreite3,
                       self.vorgewende31,
                       self.vorgewende32)
-
+            for point in self.points3:
+                self.points_total.append(point)
     def calculate_field(self, coords_str, plant):
         try:
             plants_distance = 0
             if plant == "Zuckerrübe":
-                plants_distance = 0.2
+                plants_distance = 40 #0.2
             elif plant == "Mais":
-                plants_distance = 0.35
+                plants_distance = 40 #0.35
             elif plant == "Getreide":
-                plants_distance = 0.25
+                plants_distance = 40 #0.25
+            elif plant == "Test 10m":
+                plants_distance = 10
             elif plant == "Test 100m":
                 plants_distance = 100
 
@@ -457,6 +479,8 @@ class PlotApp(customtkinter.CTk):
         return points
 
     def plot(self, points, coords_str, vorgewendeoption, field_edge, vorgewende1, vorgewende2):
+
+
         coords = self.convert_coordinates_string_to_list(coords_str)
         # Anhang der ersten Koordinate aus der KML-Datei aktuelle UTM-Zone ermitteln
         utm_zone = get_utm_zone(coords)
@@ -486,13 +510,12 @@ class PlotApp(customtkinter.CTk):
         self.ax.set_aspect('equal', 'box')
         self.ax.set_xlabel('Östliche Koordinate [m]')
         self.ax.set_ylabel('Nördliche Koordinate [m]')
-        #self.ax.ticklabel_format(style='sci', axis='x', scilimits=(3, 0))
-        self.ax.xaxis.get_major_formatter().set_scientific(True)
-        self.ax.xaxis.get_major_formatter().set_powerlimits((3, 1))
-        self.ax.xaxis.get_offset_text().set_x(1.2)
-        self.ax.yaxis.get_major_formatter().set_scientific(True)
-        self.ax.yaxis.get_major_formatter().set_powerlimits((3, 1))
-        self.ax.set_title('Koordinatenpunkte der Aussaat mit gleichseitigem \n Dereiecksmuster im UTM-System', y=1.03)
+        # self.ax.ticklabel_format(style='sci', axis='x', scilimits=(3, 0))
+        self.ax.set_title('Koordinatenpunkte der Aussaat mit gleichseitigem \n Dreiecksmuster im UTM-System', y=1.03)
+        # Maximalen und minimalen Wert der X-Achse abrufen
+        x_min, x_max = plt.gca().get_xlim()
+        # Max. 3 Ticks für die Übersicht
+        self.ax.set_xticks(np.linspace(x_min, x_max, 3))
 
         # Vorgewende berücksichtigen!
         if vorgewendeoption == "Individueller Bereich":
@@ -597,13 +620,134 @@ class PlotApp(customtkinter.CTk):
     def remove_info_text(self, event):
         self.info_label.configure(text="")
     def generate_seed_points_list(self):
-        # Saatpunkte in geographische Koordinaten transformieren
-        points_geo = utm_to_geo_points(self.points, self.utm_zone)
-        # Speichere Koordinaten der Saat in einer Textdatei
-        save_data_seed_coords(points_geo)
+        # Dateiname
+        file_name = filedialog.asksaveasfilename(
+            defaultextension=".txt",
+            filetypes=[("Textdateien", "*.txt"),
+                       ("Alle Dateien", "*.*")])
+        if self.feldgrenzen1 != "":
+            fieldnumber = 1
+            points_headland1_geo = ""
+            points_headland2_geo = ""
+            points_head_circ_geo = ""
+            if self.vorgewendeoption1 == "Individueller Bereich":
+                if self.vorgewende11 != "":
+                    coords_headland1 = self.convert_coordinates_string_to_list(self.vorgewende11)
+                    # Koordinaten in das UTM KGS projizieren, um in Metern weiterzurechnen
+                    coords_utm_head1 = geo_to_utm(coords_headland1, self.utm_zone)
+                    # Polygon erstellen
+                    polygon_headland1 = Polygon(coords_utm_head1)
+                    points_headland1, self.points1 = points_headland_area(polygon_headland1, self.points1)
+                    # Saatpunkte in geographische Koordinaten transformieren
+                    points_headland1_geo = utm_to_geo_points(points_headland1, self.utm_zone)
+                if self.vorgewende12 != "":
+                    coords_headland2 = self.convert_coordinates_string_to_list(self.vorgewende12)
+                    coords_utm_head2 = geo_to_utm(coords_headland2, self.utm_zone)
+                    polygon_headland2 = Polygon(coords_utm_head2)
+                    points_headland2, self.points1 = points_headland_area(polygon_headland2, self.points1)
+                    points_headland2_geo = utm_to_geo_points(points_headland2, self.utm_zone)
+            else:
+                if self.umlaufbreite1 != "":
+                    # Polygon erstellen
+                    coords = self.convert_coordinates_string_to_list(self.feldgrenzen1)
+                    # Anhang der ersten Koordinate aus der KML-Datei aktuelle UTM-Zone ermitteln
+                    utm_zone = get_utm_zone(coords)
+                    # Koordinaten in das UTM KGS projizieren, um in Metern weiterzurechnen
+                    coords_utm = geo_to_utm(coords, utm_zone)
+                    polygon_circ = reduced_polygon(coords_utm, float(self.umlaufbreite1))
+                    points_head_circ, self.points1 = points_headland_circ(polygon_circ, self.points1)
+                    # Saatpunkte in geographische Koordinaten transformieren
+                    points_head_circ_geo = utm_to_geo_points(points_head_circ, self.utm_zone)
+            points_geo = utm_to_geo_points(self.points1, self.utm_zone)
+            # Speichere Koordinaten der Saat in einer Textdatei
+            save_data_seed_coords(file_name, points_geo, fieldnumber, self.vorgewendeoption1, points_headland1_geo, points_headland2_geo, points_head_circ_geo, self.saatgut1)
+        if self.feldgrenzen2 != "":
+            fieldnumber = 2
+            points_headland1_geo = ""
+            points_headland2_geo = ""
+            points_head_circ_geo = ""
+            if self.vorgewendeoption2 == "Individueller Bereich":
+                if self.vorgewende21 != "":
+                    coords_headland1 = self.convert_coordinates_string_to_list(self.vorgewende21)
+                    # Koordinaten in das UTM KGS projizieren, um in Metern weiterzurechnen
+                    coords_utm_head1 = geo_to_utm(coords_headland1, self.utm_zone)
+                    # Polygon erstellen
+                    polygon_headland1 = Polygon(coords_utm_head1)
+                    points_headland1, self.points2 = points_headland_area(polygon_headland1, self.points2)
+                    # Saatpunkte in geographische Koordinaten transformieren
+                    points_headland1_geo = utm_to_geo_points(points_headland1, self.utm_zone)
+                if self.vorgewende22 != "":
+                    coords_headland2 = self.convert_coordinates_string_to_list(self.vorgewende22)
+                    coords_utm_head2 = geo_to_utm(coords_headland2, self.utm_zone)
+                    polygon_headland2 = Polygon(coords_utm_head2)
+                    points_headland2, self.points2 = points_headland_area(polygon_headland2, self.points2)
+                    points_headland2_geo = utm_to_geo_points(points_headland2, self.utm_zone)
+            else:
+                if self.umlaufbreite2 != "":
+                    # Polygon erstellen
+                    coords = self.convert_coordinates_string_to_list(self.feldgrenzen2)
+                    # Anhang der ersten Koordinate aus der KML-Datei aktuelle UTM-Zone ermitteln
+                    utm_zone = get_utm_zone(coords)
+                    # Koordinaten in das UTM KGS projizieren, um in Metern weiterzurechnen
+                    coords_utm = geo_to_utm(coords, utm_zone)
+                    polygon_circ = reduced_polygon(coords_utm, float(self.umlaufbreite2))
+                    points_head_circ, self.points2 = points_headland_circ(polygon_circ, self.points2)
+                    # Saatpunkte in geographische Koordinaten transformieren
+                    points_head_circ_geo = utm_to_geo_points(points_head_circ, self.utm_zone)
+            points_geo = utm_to_geo_points(self.points2, self.utm_zone)
+            # Speichere Koordinaten der Saat in einer Textdatei
+            save_data_seed_coords(file_name, points_geo, fieldnumber, self.vorgewendeoption2, points_headland1_geo, points_headland2_geo,
+                                  points_head_circ_geo, self.saatgut2)
+        if self.feldgrenzen3 != "":
+            fieldnumber = 3
+            points_headland1_geo = ""
+            points_headland2_geo = ""
+            points_head_circ_geo = ""
+            if self.vorgewendeoption1 == "Individueller Bereich":
+                if self.vorgewende31 != "":
+                    coords_headland1 = self.convert_coordinates_string_to_list(self.vorgewende31)
+                    # Koordinaten in das UTM KGS projizieren, um in Metern weiterzurechnen
+                    coords_utm_head1 = geo_to_utm(coords_headland1, self.utm_zone)
+                    # Polygon erstellen
+                    polygon_headland1 = Polygon(coords_utm_head1)
+                    points_headland1, self.points3 = points_headland_area(polygon_headland1, self.points3)
+                    # Saatpunkte in geographische Koordinaten transformieren
+                    points_headland1_geo = utm_to_geo_points(points_headland1, self.utm_zone)
+                if self.vorgewende32 != "":
+                    coords_headland2 = self.convert_coordinates_string_to_list(self.vorgewende32)
+                    coords_utm_head2 = geo_to_utm(coords_headland2, self.utm_zone)
+                    polygon_headland2 = Polygon(coords_utm_head2)
+                    points_headland2, self.points3 = points_headland_area(polygon_headland2, self.points3)
+                    points_headland2_geo = utm_to_geo_points(points_headland2, self.utm_zone)
+            else:
+                if self.umlaufbreite3 != "":
+                    # Polygon erstellen
+                    coords = self.convert_coordinates_string_to_list(self.feldgrenzen3)
+                    # Anhang der ersten Koordinate aus der KML-Datei aktuelle UTM-Zone ermitteln
+                    utm_zone = get_utm_zone(coords)
+                    # Koordinaten in das UTM KGS projizieren, um in Metern weiterzurechnen
+                    coords_utm = geo_to_utm(coords, utm_zone)
+                    polygon_circ = reduced_polygon(coords_utm, float(self.umlaufbreite3))
+                    points_head_circ, self.points3 = points_headland_circ(polygon_circ, self.points3)
+                    # Saatpunkte in geographische Koordinaten transformieren
+                    points_head_circ_geo = utm_to_geo_points(points_head_circ, self.utm_zone)
+            points_geo = utm_to_geo_points(self.points3, self.utm_zone)
+            # Speichere Koordinaten der Saat in einer Textdatei
+            save_data_seed_coords(file_name, points_geo, fieldnumber, self.vorgewendeoption3, points_headland1_geo, points_headland2_geo,
+                                  points_head_circ_geo, self.saatgut3)
     def save_as_svg(self):
+        file_name = filedialog.asksaveasfilename(defaultextension=".svg", filetypes=[("SVG-Dateien", "*.svg"), ("Alle Dateien", "*.*")])
         # Speichere den Plot als SVG-Datei
-        plt.savefig('output_plot.svg', format='svg')
+        plt.savefig(file_name, format='svg')
+
+    def save_as_kml(self):
+        # Saatpunkte in geographische Koordinaten transformieren
+        points_geo = utm_to_geo_points(self.points_total, self.utm_zone)
+        # Dateiname
+        file_name = filedialog.asksaveasfilename(defaultextension=".kml", filetypes=[("KML-Dateien", "*.kml"), ("Alle Dateien", "*.*")])
+        # Speichere Koordinaten der Saat in einer KML-Datei
+        save_data_seed_coords_kml(file_name, points_geo)
+
     def plot_placeholder(self):
         # Platzhalter-Plot anzeigen
         self.ax.set_xlabel('X-Achse')

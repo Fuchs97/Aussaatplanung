@@ -9,7 +9,7 @@ from rotate_pattern import rotate_polygon
 from coords_transformation import utm_to_geo_points, utm_to_geo_polygon, geo_to_utm, get_utm_zone
 from shapely.geometry import Polygon
 
-def plot_field_and_points(polygon, reduced_polygon, points, angle_degrees):
+def plot_field_and_points(polygon, reduced_polygon, points):
     # Zeichne das Polygon und die Punkte
     fig, ax = plt.subplots()
     x, y = polygon.exterior.xy
@@ -33,4 +33,6 @@ def plot_field_and_points(polygon, reduced_polygon, points, angle_degrees):
     plt.show()
 
 if __name__ == "__main__":
-    pass
+    # Ursprüngliches Polygon mit 4 Eckpunkten und schrägen Linien
+    coords = [(1, 1), (2, 4), (4, 3), (4, 1)]
+    polygon = Polygon(coords)

@@ -7,9 +7,6 @@ from rotate_pattern import generate_triangular_points_rotated
 from optimal_pattern_calculation import opt_pattern_calc
 from scipy.optimize import differential_evolution
 import time
-import cma
-from skopt import gp_minimize
-from skopt.plots import plot_convergence
 from pyswarm import pso
 
 
@@ -50,23 +47,23 @@ start_time = time.time()
 #                 n_calls=80,         # the number of evaluations of f
 #                 n_random_starts=35,
 #                 acq_func="EI")   # the random seed
-# pyswarm:
-#lb = [0,0,0]
-#ub = [60,100,100]
-#result = pso(opt_points_calc_gradient_descent, lb, ub, swarmsize= 50, maxiter= 5)
+ #pyswarm:
+lb = [0,0,0]
+ub = [60,100,100]
+result = pso(opt_points_calc_gradient_descent, lb, ub, swarmsize= 50, maxiter= 5)
 
 end_time = time.time()
 elapsed_time = end_time - start_time
 
 #plot_convergence(result)      #für boyesian
 # Extrahiere die optimierten Parameter
-#optimized_params = result.x
-#optimized_params = result[0]
+#otimized_params = result.x
+optimized_params = result[0]
 #optimized_params = result #Für brute force
 
-#angle_degrees, pattern_move_x, pattern_move_y = optimized_params
+angle_degrees, pattern_move_x, pattern_move_y = optimized_params
 
-#points = generate_triangular_points_rotated(polygon, distance, angle_degrees, pattern_move_x, pattern_move_y)
+points = generate_triangular_points_rotated(polygon, distance, angle_degrees, pattern_move_x, pattern_move_y)
 
 # Zeichne das Polygon und die Punkte
 fig, ax = plt.subplots(nrows=1, ncols=1)

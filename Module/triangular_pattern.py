@@ -1,6 +1,5 @@
 import numpy as np
-import matplotlib.pyplot as plt
-from shapely.geometry import Point, Polygon
+from shapely.geometry import Point
 
 def generate_triangular_points(polygon, distance, pattern_move_x, pattern_move_y):
     min_x, min_y, max_x, max_y = polygon.bounds         #Funktion bounds angewandt
@@ -31,32 +30,3 @@ def generate_triangular_points(polygon, distance, pattern_move_x, pattern_move_y
 
     return points
 
-if __name__ == "__main__":
-    #---------------- Parameter ------------------------------
-    # Polygonkoordinaten
-    polygon = Polygon([(1, 1), (4, 1), (6, 4), (1, 6)])
-    # Pflanzenabstand
-    distance = 0.5
-    # Verschiebung des Musters in X-Richtung in % (max. so groß wie distance_plant)
-    pattern_move_x = 0
-    # Verschiebung des Musters in Y-Richtung in % (max. so groß wie das Doppelte der Dreieckshöhe)
-    pattern_move_y = 0
-
-    #----------------------------------------------------------
-    # Generiere die dreiecksförmigen Punkte innerhalb des Polygons
-    points = generate_triangular_points(polygon, distance, pattern_move_x, pattern_move_y)
-
-    # Zeichne das Polygon und die Punkte
-    fig, ax = plt.subplots()
-    x, y = polygon.exterior.xy
-    ax.fill(x, y, alpha=0.5, edgecolor='black', facecolor='gray')
-    ax.plot(*polygon.exterior.xy, color='black')
-
-    for point in points:
-        ax.plot(point.x, point.y, 'ro')
-
-    ax.set_aspect('equal', 'box')
-    plt.xlabel('X-Koordinate')
-    plt.ylabel('Y-Koordinate')
-    plt.title('Polygon und dreiecksförmige Punkteverteilung')
-    plt.show()
