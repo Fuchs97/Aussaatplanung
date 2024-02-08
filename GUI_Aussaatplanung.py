@@ -421,11 +421,11 @@ class PlotApp(customtkinter.CTk):
         try:
             plants_distance = 0
             if plant == "Zuckerrübe":
-                plants_distance = 40 #0.2
+                plants_distance = 0.2
             elif plant == "Mais":
-                plants_distance = 40 #0.35
+                plants_distance = 0.35
             elif plant == "Getreide":
-                plants_distance = 40 #0.25
+                plants_distance = 0.25
             elif plant == "Test 10m":
                 plants_distance = 10
             elif plant == "Test 100m":
